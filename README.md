@@ -16,7 +16,7 @@
 
 ## 快速开始
 
-需要 Docker、Compose v2 和 Linux 容器。先在 FlClash 中启用要测评的配置；如果使用代理集合，先完成集合更新，确保生效配置和缓存都已生成。
+需要 Docker。先在 FlClash 中启用要测评的配置；如果使用代理集合，先完成集合更新，确保生效配置和缓存都已生成。
 
 镜像使用 Linux amd64 核心；ARM 主机需要支持 amd64 模拟。首次构建需联网下载官方镜像、Debian 软件包和 FlClash 核心，核心包会自动下载并校验 SHA-256。无需提前安装 Python、Node.js、Chromium 或 CloakBrowser。
 
