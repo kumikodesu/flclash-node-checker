@@ -22,7 +22,7 @@ COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=core /core/FlClashCore /opt/flclash/FlClashCore
 WORKDIR /app
 COPY vendor ./vendor
-COPY bootstrap.py checker.py core.py iplark.py iplark_browser.mjs report.py report.html webui.py webui.html ./
+COPY bootstrap.py checker.py core.py config_import.py iplark.py iplark_browser.mjs report.py report.html webui.py webui.html ./
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 \
     FLCLASH_CONFIG=/flclash/config.yaml CHECKER_OUTPUT=/data/results IPLARK_CACHE=/data/iplark-cache.json
 USER checker

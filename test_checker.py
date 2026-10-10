@@ -280,6 +280,15 @@ class ScopeAndReportTests(unittest.TestCase):
             with self.assertRaises(FileNotFoundError):
                 load_nodes(source)
 
+    def test_wrong_provider_cache_cannot_silently_drop_nodes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "config.yaml"
+            source.write_text("proxies:\n- {name: demo, type: ss}\nproxy-providers:\n  p:\n    path: provider.yaml\n")
+            (root / "provider.yaml").write_text("rules: [DOMAIN, example.invalid]\n")
+            with self.assertRaises(ValueError):
+                load_nodes(source)
+
     def test_duplicate_node_names_fail_instead_of_silently_dropping_nodes(self):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "config.yaml"

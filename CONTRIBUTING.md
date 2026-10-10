@@ -7,7 +7,7 @@ Build and run the checks from the project directory:
 
 ```sh
 docker build -t flclash-node-checker-test .
-docker run --rm --network none --mount "type=bind,src=.,dst=/tests,readonly" -w /tests flclash-node-checker-test python -E -s -m unittest test_checker test_docker
+docker run --rm --network none --mount "type=bind,src=.,dst=/tests,readonly" -w /tests flclash-node-checker-test python -E -s -m unittest test_checker test_docker test_config_import
 docker run --rm --network none flclash-node-checker-test node --check /app/iplark_browser.mjs
 ```
 

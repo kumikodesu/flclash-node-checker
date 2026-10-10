@@ -165,7 +165,9 @@ def load_nodes(source: Path) -> tuple[dict, list[dict]]:
         if not path.is_file():
             raise FileNotFoundError(f"代理集合 {name} 尚未缓存，请先在 FlClash 中更新该集合。")
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
-        nodes.extend(copy.deepcopy((data or {}).get("proxies") or []))
+        if not isinstance(data, dict) or not isinstance(data.get("proxies"), list):
+            raise ValueError("代理集合缓存缺少 proxies 列表，请先在 FlClash 更新集合。")
+        nodes.extend(copy.deepcopy(data["proxies"]))
     names = [node["name"] for node in nodes]
     if not names:
         raise ValueError("当前配置中没有代理节点。")

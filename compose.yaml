@@ -7,16 +7,10 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
     environment:
-      FLCLASH_HOST_DIR: "${FLCLASH_DIR:?请在项目的 .env 中设置 FlClash 数据目录 FLCLASH_DIR}"
+      FLCLASH_CONFIG: /data/imported-config.yaml
       TZ: Asia/Shanghai
       IPLARK_CDP_URL: ""
     volumes:
-      - type: bind
-        source: "${FLCLASH_DIR}"
-        target: /flclash
-        read_only: true
-        bind:
-          create_host_path: false
       - type: volume
         source: checker-data
         target: /data

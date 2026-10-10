@@ -10,7 +10,7 @@ jobs:
       - name: Build Docker image
         run: docker build -t flclash-node-checker-test .
       - name: Unit tests (synthetic data, no external network)
-        run: docker run --rm --network none --mount "type=bind,src=$PWD,dst=/tests,readonly" -w /tests flclash-node-checker-test python -E -s -m unittest test_checker test_docker
+        run: docker run --rm --network none --mount "type=bind,src=$PWD,dst=/tests,readonly" -w /tests flclash-node-checker-test python -E -s -m unittest test_checker test_docker test_config_import
       - name: Browser bridge syntax
         run: docker run --rm --network none flclash-node-checker-test node --check /app/iplark_browser.mjs
       - name: Compose configuration
@@ -18,3 +18,5 @@ jobs:
           export FLCLASH_DIR=/tmp/flclash-test
           docker compose config --quiet
           docker compose -f compose.yaml -f compose.cloakbrowser.yaml config --quiet
+          docker compose -f compose.yaml -f compose.flclash.yaml config --quiet
+          docker compose -f compose.yaml -f compose.flclash.yaml -f compose.cloakbrowser.yaml config --quiet

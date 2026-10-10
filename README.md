@@ -17,24 +17,42 @@
 
 需要 Docker、Compose v2 和 Linux 容器，以及 FlClash 已生成的生效配置。镜像使用 Linux amd64 核心；ARM 主机需要支持 amd64 模拟。首次构建需联网下载官方镜像、Debian 软件包和 FlClash 核心，核心包会自动下载并校验 SHA-256。
 
-1. 克隆仓库或完整解压源码，进入项目目录。
-2. 将 `.env.example` 复制为项目目录中的 `.env`，编辑其中的 `FLCLASH_DIR`：
-
-   ```dotenv
-   FLCLASH_DIR='/absolute/path/to/FlClashData'
-   ```
-
-   填写包含当前生效 `config.yaml` 和代理集合缓存的**数据目录绝对路径**，不是程序安装目录。路径建议使用正斜杠，如 `D:/FlClashData`。目录需允许容器用户 UID 10001 读取；挂载保持只读。
-
-3. 在项目目录运行：
+1. 克隆仓库或完整解压源码，进入项目目录，直接运行：
 
    ```sh
    docker compose up --build -d
    ```
 
-4. 打开 [测评网页](http://127.0.0.1:8080)，刷新协议列表并点击一键测评。`all` 表示当前配置的全部协议、全部节点。
+2. 打开 [测评网页](http://127.0.0.1:8080)，点击 **选择配置文件**，选择 FlClash 当前生效的 YAML 配置。如果配置使用代理集合或外部证书，点击 **选择数据文件夹**，选择包含 `config.yaml` 和依赖文件的整个数据目录。
+3. 选择协议，点击一键测评。`all` 表示导入配置中的全部协议、全部节点。
 
-`.env` 保存在测评目录中，不会提交到 Git。移动 FlClash 安装位置不影响镜像内的核心。数据目录移动后修改 `.env`，再次运行上述 Compose 命令；切换配置或协议后在网页刷新列表，每批测评重新读取配置。
+**默认流程无需 `.env`、宿主机路径或手动下载核心。** 没有配置时网页仍会正常启动并提示导入。导入会验证全部节点及集合缓存；文件缺失、同名节点或格式错误会明确提示，并保留上次有效配置。
+
+导入只复制必要的节点数据到 Docker 持久卷，不修改原文件。文件夹内的数据库、日志及其他无关文件不会导入。导入配置会保留到下次启动；它是一次快照，切换 FlClash 配置后需要重新导入。
+
+### 可选：自动读取 FlClash 生效配置
+
+标准数据目录可通过附加 Compose 文件直接读取，网页打开后自动显示协议和节点：
+
+```sh
+docker compose -f compose.yaml -f compose.flclash.yaml up --build -d
+```
+
+此模式优先使用现有 `.env` 中的 `FLCLASH_DIR`；没有设置时，从 `APPDATA` 自动定位 `com.follow/clash` 标准数据目录。因此使用标准目录的 Windows 安装不需要查找路径或编辑配置。自定义目录或其他系统可在项目 `.env` 设置数据目录绝对路径：
+
+```dotenv
+FLCLASH_DIR='/absolute/path/to/FlClashData'
+```
+
+Docker 无法直接枚举宿主机进程；此功能自动读取生效配置，不根据文件存在断言 FlClash 正在运行。若找不到目录，改用默认启动命令和网页导入。自动读取模式下切换配置只需刷新协议列表，每批测评重新读取。手动导入会在当前服务运行期间切换为导入快照；重新启动自动读取模式后再次优先读取挂载配置。
+
+要同时使用自动读取和 CloakBrowser：
+
+```sh
+docker compose -f compose.yaml -f compose.flclash.yaml -f compose.cloakbrowser.yaml up --build -d
+```
+
+自动目录只读挂载，需允许容器用户 UID 10001 读取。移动 FlClash 程序安装位置不影响 Docker 内核心；自定义数据目录移动后更新 `.env`。停止、日志等命令使用与启动时相同的 `-f` 参数。
 
 测速反映运行 Docker 的网络环境。更新、重建或停止容器前，应在网页停止测评并等状态变为结束，避免中断当前批次。
 
@@ -119,7 +137,7 @@ docker compose cp checker:/data/results ./results
 
 ## 常见问题
 
-**找不到配置或代理集合缓存**：在 FlClash 中启用目标配置并更新集合，确认 `.env` 指向包含生效 `config.yaml` 及相关缓存的目录。配置引用的文件必须位于挂载的数据目录内。
+**找不到配置或代理集合缓存**：在 FlClash 中启用目标配置并更新集合，再选择数据文件夹导入。普通订阅文件不一定包含集合缓存。自动读取模式下，检查挂载目录是否包含生效 `config.yaml` 和引用文件。
 
 **Docker 引擎不可用**：先确保 `docker info` 正常，并确认使用 Linux 容器。
 

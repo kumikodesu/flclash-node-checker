@@ -5,6 +5,7 @@
 !bootstrap.py
 !checker.py
 !core.py
+!config_import.py
 !iplark.py
 !iplark_browser.mjs
 !report.py

@@ -1,0 +1,14 @@
+# Read the standard FlClash data directory without editing .env on Windows.
+# FLCLASH_DIR overrides the detected directory for custom installations.
+services:
+  checker:
+    environment:
+      FLCLASH_CONFIG: /flclash/config.yaml
+      FLCLASH_HOST_DIR: "${FLCLASH_DIR:-${APPDATA:?自动识别需要 APPDATA，其他数据目录请设置 FLCLASH_DIR}/com.follow/clash}"
+    volumes:
+      - type: bind
+        source: "${FLCLASH_DIR:-${APPDATA:?自动识别需要 APPDATA，其他数据目录请设置 FLCLASH_DIR}/com.follow/clash}"
+        target: /flclash
+        read_only: true
+        bind:
+          create_host_path: false
