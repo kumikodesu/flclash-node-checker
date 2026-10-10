@@ -4,10 +4,10 @@ services:
   checker:
     environment:
       FLCLASH_CONFIG: /flclash/config.yaml
-      FLCLASH_HOST_DIR: "${FLCLASH_DIR:-${APPDATA:?自动识别需要 APPDATA，其他数据目录请设置 FLCLASH_DIR}/com.follow/clash}"
+      FLCLASH_HOST_DIR: "${FLCLASH_DIR:-${APPDATA:-.}/com.follow/clash}"
     volumes:
       - type: bind
-        source: "${FLCLASH_DIR:-${APPDATA:?自动识别需要 APPDATA，其他数据目录请设置 FLCLASH_DIR}/com.follow/clash}"
+        source: "${FLCLASH_DIR:-${APPDATA:-.}/com.follow/clash}"
         target: /flclash
         read_only: true
         bind:
