@@ -1,0 +1,26 @@
+name: Tests
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  unit-tests:
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Windows tests
+        if: runner.os == 'Windows'
+        run: python -E -s -X utf8 -m unittest test_checker test_docker test_desktop test_launcher
+      - name: Linux tests
+        if: runner.os == 'Linux'
+        run: python -E -s -m unittest test_docker
+      - name: Browser bridge syntax
+        run: node --check iplark_browser.mjs

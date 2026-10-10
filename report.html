@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FlClash · 节点综合测评</title>
+<style>
+:root{color-scheme:light;--ink:#172e2b;--muted:#657771;--line:#dce5df;--green:#166650;--bg:#f3f5ef}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 "Segoe UI","Microsoft YaHei",sans-serif}
+header{background:#183c34;color:#f7fbf3;padding:35px max(28px,calc((100vw - 1440px)/2));border-bottom:5px solid #b5d490}
+.eyebrow{font-size:12px;letter-spacing:2px;color:#b5d490}h1{font-size:32px;margin:10px 0 5px;font-weight:600;letter-spacing:-1px}header p{margin:0;color:#c0d4ca}
+main{max-width:1500px;margin:auto;padding:24px 28px 45px}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.card{border:1px solid var(--line);border-radius:12px;padding:18px;background:white}.card small{display:block;color:var(--muted)}.card strong{display:block;font-size:26px;margin-top:8px}.card .sub{font-size:12px;color:var(--muted);margin-top:7px}
+.leader{background:#e2eed9;border-color:#bdd0ae}.leader strong{font-size:18px;overflow-wrap:anywhere}.notice{background:#fff4d8;border:1px solid #eddbac;padding:12px 16px;border-radius:9px;margin:15px 0}
+.tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:22px 0 12px}input,select,.button{border:1px solid #c9d5cc;border-radius:7px;padding:9px 12px;background:white;color:var(--ink);font:inherit}input{min-width:240px}select{max-width:220px}.button{text-decoration:none}.button:hover{background:#e2eed9}.tools span{margin-left:auto;color:var(--muted);font-size:13px}
+.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:10px;background:white}table{width:100%;border-collapse:collapse;white-space:nowrap;font-size:13px}th{background:#e7eee5;font-weight:600;text-align:left;padding:14px 12px;cursor:pointer;user-select:none}td{padding:13px 12px;border-top:1px solid #e6ece5;vertical-align:top}tbody tr:hover{background:#f5f9f2}.node{font-weight:600;max-width:260px;white-space:normal;overflow-wrap:anywhere}.score{font-size:18px;font-weight:700;color:var(--green)}.bar{height:4px;width:70px;background:#e4ece1;border-radius:2px;margin-top:5px}.bar i{display:block;height:100%;background:#86ac67;border-radius:2px}.dim{color:var(--muted);font-size:11px;white-space:normal;max-width:240px}.badge{display:inline-block;background:#e8f2e5;color:#3e633a;padding:3px 7px;border-radius:4px;font-size:11px}.warn{background:#fff0ce;color:#8f6623}.bad{background:#f9e6e1;color:#a24636}a{color:var(--green)}td details{white-space:normal;min-width:180px;max-width:300px}details>summary{cursor:pointer;color:var(--green)}.details{margin-top:20px;padding:18px 22px;background:white;border:1px solid var(--line);border-radius:10px}.details p{color:var(--muted);margin:12px 0}.details code{font-size:12px}.weights{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}.weights span{background:#eef3e9;padding:5px 9px;border-radius:5px;font-size:12px}.empty{padding:30px;color:var(--muted)}footer{font-size:12px;color:var(--muted);margin-top:20px}
+@media(max-width:850px){.cards{grid-template-columns:repeat(2,1fr)}header{padding:24px}main{padding:18px}h1{font-size:26px}.tools span{width:100%;margin-left:0}}
+</style>
+<header><div class="eyebrow">FLCLASH / NODE BENCHMARK</div><h1>代理节点综合测评</h1><p id="meta"></p></header>
+<main><section class="cards">
+<div class="card leader"><small>当前最高综合分 · 完整数据节点</small><strong id="winner">—</strong><div class="sub" id="winner-detail"></div></div>
+<div class="card"><small>检测范围 / 已测 / 可连接</small><strong id="coverage"></strong><div class="sub" id="scope"></div></div>
+<div class="card"><small>短时下载最快</small><strong id="fastest"></strong><div class="sub" id="fastest-name"></div></div>
+<div class="card"><small>IPLark 已补全 / 待补全</small><strong id="ipcount"></strong><div class="sub" id="traffic"></div></div>
+</section><div id="notice" class="notice" hidden></div>
+<div class="tools"><input id="search" aria-label="搜索节点、地区或出口IP" placeholder="搜索节点、地区或出口 IP"><select id="protocol" aria-label="筛选协议"><option value="">全部协议</option></select><select id="status" aria-label="筛选状态"><option value="">全部状态</option><option>已完成</option><option>IP评分待补全</option><option>连接失败</option><option>未检测</option></select><a class="button" href="results.csv" download>下载 CSV</a><a class="button" href="results.json" download>原始数据</a><span id="count"></span></div>
+<div class="table-wrap"><table><thead><tr>
+<th data-key="rank">排名 ↕</th><th data-key="name">节点 ↕</th><th data-key="region">地区 ↕</th><th data-key="protocol">协议 ↕</th><th data-key="score">综合分 ↕</th><th data-key="iplark_score">IPLark ↕</th><th data-key="download_mbps">下载 Mbps ↕</th><th data-key="latency_ms">响应 ms ↕</th><th data-key="jitter_ms">波动 ms ↕</th><th data-key="success_pct">成功率 ↕</th><th data-key="reachable_sites">连通性 ↕</th><th>出口 IP / 明细</th>
+</tr></thead><tbody id="rows"></tbody></table><div id="empty" class="empty" hidden>没有匹配的节点。</div></div>
+<details class="details"><summary>评分方法、测量范围与数据来源</summary>
+<div class="weights"><span>短时下载 20%</span><span>IPLark 40%</span><span>请求成功率 20%</span><span>响应延迟 10%</span><span>延迟波动 5%</span><span>多站点连通性 5%</span></div>
+<p>综合分为各维度百分制评分乘以权重后求和。网速权重固定为 20%，参考上限为 100 Mbps；同一评分尺度用于全部节点，与当前批次最快节点无关。IPLark 为 IP 质量/信誉评分，不是网速或延迟。</p>
+<p><code>网速分 = min(100, 100×ln(1+Mbps)/ln(101)) × 下载成功次数/2</code>。下载两次取中位数，计时从响应头返回后开始，含首个数据块等待；任一次失败都会降低此项。每次采样目标上限 20 秒（加一个读超时可能稍长）；限时停止且已取得至少 256 KiB 时按实际字节和耗时计算，原始数据标记 time_limited，不把正常低速记为失败。<code>延迟分 = 100/(1+(ms/400)^1.25)</code>；<code>波动分 = 100/(1+(ms/100)^1.25)</code>。</p>
+<p>响应延迟为 Cloudflare 同一零字节 HTTPS 端点五次新连接的响应耗时中位数，包含代理握手、TLS 和 HTTP。延迟波动为相邻成功请求耗时差的中位数，至少需要两对；这不是 ICMP ping 或实际网络丢包率。请求成功率覆盖九次请求：五次 Cloudflare、Google、Microsoft、两次 IPv4 出口查询。Microsoft 使用官方 NCSI HTTP 探针并核对正文，其他探针为 HTTPS。连通性按 Cloudflare / Google / Microsoft 三站分别计算。</p>
+<p>IPv4 出口在下载前后各查询一次。如果发生变化，IPLark 分取所有观测出口的最低分；无法取得任一出口评分时综合分保持缺失，只展示性能部分分（上限 60）。完整分数只在数据完整的节点间排名。连接全失败的节点标记 0 分；停止后的未测节点保留为空。</p>
+<p>通过已安装的 FlClashCore 独立临时实例和本机独立端口逐个测试，关闭测试实例 TUN。节点、证书和必要的链式引用来自当前配置快照；不修改日常 FlClash 配置、系统代理和选中节点。浏览器查询安排在测速后，避免干扰。链式节点受其依赖组选择影响，DNS 使用系统解析，结果可能与日常规则/TUN 下的表现不同。</p>
+<p>短时下载并非长期带宽保证。不同域名、IPv6、负载均衡或不同时段可能走不同出口；这里的 IPLark 评分明确针对观测到的 IPv4 出口，不验证流媒体或 AI 服务解锁。</p>
+<p>节点地区优先显示 IPLark 公开页面的实际出口 IP 国家/地区；多个出口地区全部列出。缺少出口地区时按节点名称中的地区代码推断，并标注“名称推断”；没有明确依据时显示“未知”。地区不参与评分。</p>
+<p>来源：<a href="https://iplark.com/" target="_blank" rel="noopener">IPLark</a>（公开页面分数；优先使用 24 小时内已核实的本地缓存，仅缺失或过期时查询实时页面，明确显示“缓存”和原查询时间；不调用付费拓展数据），<a href="https://github.com/cloudflare/speedtest" target="_blank" rel="noopener">Cloudflare 官方测速端点</a>。</p>
+<p>如果两次 IPv4 出口查询均失败、但性能探针可连接，会最多额外重试两次出口查询；重试记录和时间见原始数据，不修改原九次探针成功率。</p>
+</details><footer id="footer"></footer></main>
+<script id="report-data" type="application/json">__REPORT_DATA__</script>
+<script>
+const report=JSON.parse(document.querySelector('#report-data').textContent), results=report.results;
+const $=id=>document.getElementById(id), esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const number=(value,digits=1)=>typeof value==='number'?value.toFixed(digits):'—';
+const complete=results.filter(r=>r.status==='已完成'), measured=results.filter(r=>r.status!=='未检测'), available=results.filter(r=>r.available);
+complete.forEach((r,i)=>r.rank=i+1);
+$('meta').textContent=`${new Date(report.created_at).toLocaleString('zh-CN')} · 当前配置快照 · ${report.protocol_filter==='all'?'全部协议':report.protocol_filter} · 每次下载上限 ${report.download_bytes_per_attempt/1048576} MiB`;
+const winner=complete[0];$('winner').textContent=winner?.name||'暂无完整综合评分';$('winner-detail').textContent=winner?`${number(winner.score)} / 100 · IPLark ${number(winner.iplark_score,0)}`:'IP评分缺失时不指定综合冠军';
+$('coverage').textContent=`${results.length} / ${measured.length} / ${available.length}`;$('scope').textContent=`配置共 ${report.scope_count} 个节点${report.selected_count!==report.scope_count?'，本次为筛选/验证范围':''}`;
+const fastest=[...available].filter(r=>r.download_mbps!=null).sort((a,b)=>b.download_mbps-a.download_mbps)[0];$('fastest').textContent=fastest?`${number(fastest.download_mbps)} Mbps`:'—';$('fastest-name').textContent=fastest?.name||'暂无有效下载测量';
+$('ipcount').textContent=`${complete.length} / ${available.length-complete.length}`;$('traffic').textContent=`实际测速下载 ${(results.reduce((s,r)=>s+(r.download_bytes||0),0)/1048576).toFixed(1)} MiB`;
+const notices=[];
+if(report.measurement_environment)notices.push(`测量环境：${report.measurement_environment}。`);
+const block=report.iplark_block;
+if(block){
+ const cachedNodes=results.filter(r=>(r.ip_scores||[]).some(q=>q.source==='cached')).length;
+ const pendingNodes=results.filter(r=>r.status==='IP评分待补全').length;
+ notices.push(`${block.message} 本轮后续自动查询已停止。触发 IP：${block.ip||'未记录'}；触发时间：${block.checked_at?new Date(block.checked_at).toLocaleString('zh-CN'):'未记录'}${block.resume_after?`；最早恢复时间：${new Date(block.resume_after).toLocaleString('zh-CN')}`:''}。缓存节点 ${cachedNodes} 个，IP评分待补全 ${pendingNodes} 个；网速等性能测评结果仍保留。`);
+}
+if(report.cancelled||report.interrupted)notices.push('本次检测已停止，未检测节点仍显示在表格中。');if(available.length>complete.length)notices.push('部分节点缺少 IPLark 评分：综合分显示“待补全”，性能部分分按 /60 展示，未重新分配权重。');if(results.some(r=>(r.ip_scores||[]).some(q=>q.source==='cached')))notices.push('部分 IPLark 分来自 24 小时内缓存，已逐项标注来源与查询时间。');if(notices.length){$('notice').hidden=false;$('notice').textContent=notices.join(' ')}
+for(const protocol of [...new Set(results.map(r=>r.protocol))].sort()){const option=document.createElement('option');option.value=protocol;option.textContent=protocol;$('protocol').append(option)}
+let sortKey='rank',descending=false;
+function render(){
+ const text=$('search').value.toLowerCase(), protocol=$('protocol').value, status=$('status').value;
+ const rows=results.filter(r=>(!protocol||r.protocol===protocol)&&(!status||r.status===status)&&(`${r.name} ${r.region||''} ${(r.ips||[]).join(' ')}`.toLowerCase().includes(text)));
+ rows.sort((a,b)=>{const av=a[sortKey],bv=b[sortKey];if(av==null&&bv==null)return 0;if(av==null)return 1;if(bv==null)return -1;const cmp=typeof av==='number'?av-bv:String(av).localeCompare(String(bv));return descending?-cmp:cmp});
+ $('rows').innerHTML=rows.map(r=>{
+ const badge=r.status==='已完成'?'':r.available?'warn':'bad';
+ const score=r.score!=null?`<div class="score">${number(r.score)}</div><div class="bar"><i style="width:${Math.max(0,Math.min(100,r.score))}%"></i></div>`:`<div>${r.status==='未检测'?'未检测':'待补全'}</div>`;
+ const details=(r.ip_scores||[]).map(q=>`<div><a href="${esc(q.url)}" target="_blank" rel="noopener">${esc(q.ip)}</a> · ${number(q.score,0)} ${q.source==='cached'?'<span class="badge warn">缓存</span>':''}<div class="dim">${esc(q.region||'')} ${q.region_checked_at?`地区查询：${esc(q.region_checked_at)}<br>`:''}${esc(q.checked_at||'')} ${esc(q.query_issue?.message||q.error||q.live_error||'实时公开页面')}</div>${q.basic?`<details><summary>IPLark 基础信息</summary><div class="dim">${esc(q.basic).replace(/\n/g,'<br>')}</div></details>`:''}</div>`).join('');
+ const issue=(r.ip_scores||[]).find(q=>q.query_issue)?.query_issue;
+ const queryNotice=issue?`${({verification:'网站安全验证',rate_limited:'网站限流',access_denied:'查询被拒绝'})[issue.kind]||'查询受阻'} · ${r.iplark_score!=null?'已用缓存':'待补全'}`:'';
+ const components=Object.entries(r.components||{}).map(([k,v])=>`${({speed:'网速',iplark:'IPLark',success:'成功率',latency:'响应',jitter:'波动',reachability:'连通性'})[k]}：${number(v)} × ${report.weights[k]}%`).join('<br>');
+ return `<tr><td>${r.rank||'—'}</td><td class="node">${esc(r.name)}<div><span class="badge ${badge}">${esc(r.status)}</span></div></td><td>${esc(r.region)}<div class="dim">${esc(r.region_source)}</div></td><td>${esc(r.protocol)}</td><td>${score}<div class="dim">性能 ${number(r.performance_score)} / 60</div></td><td>${number(r.iplark_score,0)}<div class="dim">${esc(queryNotice)}</div></td><td>${number(r.download_mbps)}<div class="dim">下载成功 ${r.download_success??'—'} / 2</div></td><td>${number(r.latency_ms)}</td><td>${number(r.jitter_ms)}</td><td>${number(r.success_pct)}%</td><td>${r.reachable_sites??'—'} / 3</td><td>${(r.ips||[]).map(esc).join('<br>')||'—'}${(r.ips||[]).length>1?'<div class="badge warn">出口发生变化</div>':''}<details><summary>查看明细</summary>${details}<div class="dim">${components}</div><div class="dim">${esc((r.errors||[]).join('；'))}</div></details></td></tr>`;
+ }).join('');$('count').textContent=`显示 ${rows.length} / ${results.length} 个节点`;$('empty').hidden=rows.length>0;
+}
+for(const id of ['search','protocol','status'])$(id).addEventListener('input',render);
+document.querySelectorAll('th[data-key]').forEach(th=>th.addEventListener('click',()=>{const key=th.dataset.key;descending=key===sortKey?!descending:!['rank','name','region','protocol','latency_ms','jitter_ms'].includes(key);sortKey=key;render()}));
+$('footer').textContent=`配置来源：${report.source} · 生成时间：${report.finished_at||report.created_at} · Mbps ÷ 8 ≈ MB/s · 报告为本地静态文件`;
+render();
+</script></html>

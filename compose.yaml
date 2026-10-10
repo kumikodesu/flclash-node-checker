@@ -1,0 +1,46 @@
+name: flclash-node-checker
+services:
+  cloakbrowser:
+    profiles: [cloakbrowser]
+    image: cloakhq/cloakbrowser:latest
+    platform: linux/amd64
+    command: cloakserve
+    init: true
+    ports:
+      - "127.0.0.1:9222:9222"
+    shm_size: 256mb
+    healthcheck:
+      test: [CMD, curl, -f, "http://localhost:9222/json/version"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+  checker:
+    build: .
+    platform: linux/amd64
+    init: true
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      FLCLASH_HOST_DIR: "${FLCLASH_DIR:?请先运行 start-docker.cmd 或设置 FLCLASH_DIR}"
+      TZ: Asia/Shanghai
+      IPLARK_CDP_URL: "${IPLARK_CDP_URL:-}"
+    volumes:
+      - type: bind
+        source: "${FLCLASH_DIR}"
+        target: /flclash
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./docker-data
+        target: /data
+        bind:
+          create_host_path: false
+    shm_size: 256mb
+    mem_limit: 1g
+    cpus: 2
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL

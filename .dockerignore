@@ -1,0 +1,17 @@
+*
+!Dockerfile
+!docker-assets/
+!docker-assets/flclash-amd64.deb
+!vendor/
+!vendor/**
+!bootstrap.py
+!checker.py
+!core.py
+!iplark.py
+!iplark_browser.mjs
+!report.py
+!report.html
+!webui.py
+!webui.html
+**/__pycache__
+**/*.pyc
