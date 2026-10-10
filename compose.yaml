@@ -7,13 +7,20 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
     environment:
-      FLCLASH_CONFIG: /data/imported-config.yaml
+      FLCLASH_CONFIG: /flclash/config.yaml
+      FLCLASH_HOST_DIR: "${FLCLASH_DIR:-${APPDATA:-./.flclash}/com.follow/clash}"
       TZ: Asia/Shanghai
       IPLARK_CDP_URL: ""
     volumes:
       - type: volume
         source: checker-data
         target: /data
+      - type: bind
+        source: "${FLCLASH_DIR:-${APPDATA:-./.flclash}/com.follow/clash}"
+        target: /flclash
+        read_only: true
+        bind:
+          create_host_path: true
     shm_size: 256mb
     mem_limit: 1g
     cpus: 2

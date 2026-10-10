@@ -103,6 +103,42 @@ class ImportTests(unittest.TestCase):
                 webui, "load_nodes", return_value=({}, [NODE])):
             self.assertEqual(batch.configuration()[1]["source_mode"], "mounted")
 
+    def test_automatic_read_failure_uses_saved_snapshot_and_retries_on_refresh(self):
+        batch = webui.Batch()
+        mounted = Path("/flclash/config.yaml")
+        with patch.object(Path, "is_file", return_value=True), patch.object(
+                webui, "resolve_paths", side_effect=[FileNotFoundError("missing"),
+                    (webui.IMPORTED.resolve(), Path("core")), (mounted, Path("core"))]), patch.object(
+                webui, "load_nodes", side_effect=[({}, [NODE]), ({}, [{**NODE, "type": "anytls"}])]):
+            fallback = batch.configuration()[1]
+            self.assertEqual(fallback["source_mode"], "imported")
+            self.assertTrue(fallback["automatic_failed"])
+            self.assertFalse(batch.use_imported)
+            recovered = batch.configuration()[1]
+            self.assertEqual(recovered["source_mode"], "mounted")
+            self.assertFalse(recovered["automatic_failed"])
+            self.assertEqual(recovered["protocols"], ["all", "anytls"])
+
+    def test_invalid_automatic_yaml_falls_back_without_disclosing_credentials(self):
+        batch = webui.Batch()
+        with patch.object(Path, "is_file", return_value=True), patch.object(
+                webui, "resolve_paths", side_effect=[(Path("/flclash/config.yaml"), Path("core")),
+                    (webui.IMPORTED.resolve(), Path("core"))]), patch.object(
+                webui, "load_nodes", side_effect=[yaml.YAMLError("PRIVATE-MARKER"), ({}, [NODE])]):
+            result = batch.configuration()[1]
+            self.assertTrue(result["automatic_failed"])
+            self.assertNotIn("PRIVATE-MARKER", str(result))
+
+    def test_automatic_config_with_missing_node_type_uses_saved_snapshot(self):
+        batch = webui.Batch()
+        with patch.object(Path, "is_file", return_value=True), patch.object(
+                webui, "resolve_paths", side_effect=[(Path("/flclash/config.yaml"), Path("core")),
+                    (webui.IMPORTED.resolve(), Path("core"))]), patch.object(
+                webui, "load_nodes", side_effect=[({}, [{"name": "invalid"}]), ({}, [NODE])]):
+            result = batch.configuration()[1]
+            self.assertTrue(result["automatic_failed"])
+            self.assertEqual(result["protocols"], ["all", "ss"])
+
 
 if __name__ == "__main__":
     unittest.main()

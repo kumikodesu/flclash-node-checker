@@ -8,7 +8,8 @@ through GitHub without publishing secrets.
 The Docker web UI is bound to `127.0.0.1`; the optional CDP browser is accessible
 only within the Compose network and has no published host port. The web UI
 also rejects Host headers for remote domains, to guard against DNS rebinding.
-Keep the web port local. CDP provides control of its browser. Optional configuration mounts are read-only. Browser imports are validated and
+Keep the web port local. CDP provides control of its browser. The default FlClash configuration mount is read-only. Docker may create an empty host
+directory if that path is missing; the checker does not write configuration there. Browser imports are validated and
 saved as a private node snapshot in the Docker volume; original files are not
 modified. Folder import selects YAML, provider cache and certificate files,
 excluding databases and unrelated files. The checker must read node credentials

@@ -36,11 +36,21 @@ class Batch:
             return dict(self.state)
 
     def configuration(self):
-        source, _ = resolve_paths(IMPORTED if self.use_imported else None)
-        _, nodes = load_nodes(source)
-        options, _ = protocol_options(nodes)
+        automatic_failed = False
+        try:
+            source, _ = resolve_paths(IMPORTED if self.use_imported else None)
+            _, nodes = load_nodes(source)
+            options, _ = protocol_options(nodes)
+        except (OSError, ValueError, yaml.YAMLError, KeyError, TypeError, AttributeError):
+            if self.use_imported or not IMPORTED.is_file():
+                raise
+            source, _ = resolve_paths(IMPORTED)
+            _, nodes = load_nodes(source)
+            options, _ = protocol_options(nodes)
+            automatic_failed = True
         mode = "imported" if source == IMPORTED.resolve() else "mounted"
-        return source, {"protocols": options, "count": len(nodes), "source_mode": mode}
+        return source, {"protocols": options, "count": len(nodes), "source_mode": mode,
+                        "automatic_failed": automatic_failed}
 
     def import_config(self, files):
         with self.lock:
@@ -121,7 +131,7 @@ class Handler(BaseHTTPRequestHandler):
                     data = self.batch.configuration()[1]
                 return self.reply(200, data)
             except Exception:
-                return self.reply(400, {"error": "尚未读取到有效配置。请选择配置文件；使用代理集合时请选择整个数据文件夹。"})
+                return self.reply(400, {"error": "自动读取未找到有效配置。请选择配置文件或数据文件夹，或在 .env 中设置 FLCLASH_DIR 后重新创建容器。"})
         match = re.fullmatch(r"/reports/(\d{8}-\d{6}-\d{6})/(report.html|results.json|results.csv)", path)
         if match:
             file = OUTPUT / match[1] / match[2]

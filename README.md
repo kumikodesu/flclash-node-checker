@@ -2,7 +2,7 @@
 
 对 FlClash 当前生效配置中的代理节点进行批量测评，生成可排序、筛选和导出的综合评分报告。下载网速固定占 20%，IP 质量参考 [IPLark](https://iplark.com/) 公开网页。
 
-通过Docker Compose启动，在浏览器中操作。可选启用 CloakBrowser；默认使用镜像内的 Chromium，无需另行安装浏览器、Python 或 Node.js。
+通过 Docker Compose 启动，在浏览器中操作。可选启用 CloakBrowser；默认使用镜像内的 Chromium，无需另行安装浏览器、Python 或 Node.js。
 
 ## 能做什么
 
@@ -10,57 +10,67 @@
 - 包含已缓存的 proxy-provider 节点；缓存缺失或节点同名时明确报错，避免漏测。
 - 每个节点显示地区、协议、网速、响应延迟、延迟波动、请求成功率、IPLark 分数和综合分。
 - 生成 HTML、CSV、JSON；失败、待补全、停止后未检测的节点全部保留。
-- 使用独立 FlClashCore 测试进程，配置目录只读挂载；测评不会切换日常 FlClash 的节点或模式。
+- 默认自动读取 FlClash 生效配置，失败时可在网页手动导入或指定数据目录。
+- 使用独立 FlClashCore 测试进程，数据目录只读挂载；测评不会切换日常 FlClash 的节点或模式。
 - IPLark 有效缓存优先，相同出口 IP 合并查询；验证、拒绝访问和限流会显示在报告中。
 
 ## 快速开始
 
-需要 Docker、Compose v2 和 Linux 容器，以及 FlClash 已生成的生效配置。镜像使用 Linux amd64 核心；ARM 主机需要支持 amd64 模拟。首次构建需联网下载官方镜像、Debian 软件包和 FlClash 核心，核心包会自动下载并校验 SHA-256。
+需要 Docker、Compose v2 和 Linux 容器。先在 FlClash 中启用要测评的配置；如果使用代理集合，先完成集合更新，确保生效配置和缓存都已生成。
 
-1. 克隆仓库或完整解压源码，进入项目目录，直接运行：
+镜像使用 Linux amd64 核心；ARM 主机需要支持 amd64 模拟。首次构建需联网下载官方镜像、Debian 软件包和 FlClash 核心，核心包会自动下载并校验 SHA-256。无需提前安装 Python、Node.js、Chromium 或 CloakBrowser。
+
+1. 克隆仓库并进入项目目录；也可以完整解压源码后进入解压目录：
 
    ```sh
+   git clone https://github.com/kumikodesu/flclash-node-checker.git
+   cd flclash-node-checker
    docker compose up --build -d
    ```
 
-2. 打开 [测评网页](http://127.0.0.1:8080)，点击 **选择配置文件**，选择 FlClash 当前生效的 YAML 配置。如果配置使用代理集合或外部证书，点击 **选择数据文件夹**，选择包含 `config.yaml` 和依赖文件的整个数据目录。
-3. 选择协议，点击一键测评。`all` 表示导入配置中的全部协议、全部节点。
+2. 打开 [测评网页](http://127.0.0.1:8080)。程序默认自动读取 FlClash 生效配置；如果页面显示协议和节点数量，可以直接使用。
+3. 选择协议，点击一键测评。`all` 表示当前读取配置中的全部协议、全部节点。
 
-**默认流程无需 `.env`、宿主机路径或手动下载核心。** 没有配置时网页仍会正常启动并提示导入。导入会验证全部节点及集合缓存；文件缺失、同名节点或格式错误会明确提示，并保留上次有效配置。
+标准 Windows 数据目录通过 `APPDATA` 自动定位到 `com.follow/clash`，无需设置 `.env`。Docker 读取的是生效配置文件，不能直接判断宿主机上的 FlClash 进程是否正在运行，也不会自动发现任意自定义目录。
 
-导入只复制必要的节点数据到 Docker 持久卷，不修改原文件。文件夹内的数据库、日志及其他无关文件不会导入。导入配置会保留到下次启动；它是一次快照，切换 FlClash 配置后需要重新导入。
+找不到目录时，Docker 会创建一个空目录供只读挂载，网页仍可启动并提示手动配置。如果没有 `APPDATA` 且没有设置 `FLCLASH_DIR`，空目录位于项目的 `.flclash/com.follow/clash`，不会自动找到宿主机的 FlClash 配置。这个目录已排除在 Git 之外。
 
-### 可选：自动读取 FlClash 生效配置
+### 自动读取失败后如何配置
 
-标准数据目录可通过附加 Compose 文件直接读取，网页打开后自动显示协议和节点：
+可以选择以下任一方式。
 
-```sh
-docker compose -f compose.yaml -f compose.flclash.yaml up --build -d
-```
+**在网页导入**：点击“选择配置文件”，选择 FlClash 当前生效的 YAML。配置使用代理集合或外部证书时，点击“选择数据文件夹”，选择包含 `config.yaml`、集合缓存及依赖文件的整个数据目录。标准 Windows 数据目录通常为 `%APPDATA%/com.follow/clash`，自定义目录以 FlClash 实际设置为准。
 
-此模式优先使用现有 `.env` 中的 `FLCLASH_DIR`；没有设置时，从 `APPDATA` 自动定位 `com.follow/clash` 标准数据目录。因此使用标准目录的 Windows 安装不需要查找路径或编辑配置。自定义目录或其他系统可在项目 `.env` 设置数据目录绝对路径：
+导入会验证全部节点及集合缓存；文件缺失、同名节点或格式错误会明确提示，并保留上次有效配置。只复制必要的节点数据到 Docker 持久卷，不修改原文件；数据库、日志及其他无关文件不会导入。
+
+**指定数据目录**：在项目目录新建 `.env`，设置包含生效 `config.yaml` 和集合缓存的目录绝对路径。例如：
 
 ```dotenv
-FLCLASH_DIR='/absolute/path/to/FlClashData'
+FLCLASH_DIR='D:/FlClashData'
 ```
 
-Docker 无法直接枚举宿主机进程；此功能自动读取生效配置，不根据文件存在断言 FlClash 正在运行。若找不到目录，改用默认启动命令和网页导入。自动读取模式下切换配置只需刷新协议列表，每批测评重新读取。手动导入会在当前服务运行期间切换为导入快照；重新启动自动读取模式后再次优先读取挂载配置。
-
-要同时使用自动读取和 CloakBrowser：
+路径是数据目录，不是 FlClash 程序的安装目录。使用正斜杠，按实际位置填写；然后重新创建服务以应用挂载设置：
 
 ```sh
-docker compose -f compose.yaml -f compose.flclash.yaml -f compose.cloakbrowser.yaml up --build -d
+docker compose up -d --force-recreate
 ```
 
-自动目录只读挂载，需允许容器用户 UID 10001 读取。移动 FlClash 程序安装位置不影响 Docker 内核心；自定义数据目录移动后更新 `.env`。停止、日志等命令使用与启动时相同的 `-f` 参数。
+指定目录会覆盖自动定位结果。其他系统或自定义目录也可通过这种方式设置；无需另外加 `compose.flclash.yaml`。使用 CloakBrowser 组合时，重新创建、日志、停止和导出命令都需附加启动时相同的两个 `-f` 参数，见下文。
+
+### 切换配置与重新启动
+
+- 自动读取成功时，切换 FlClash 配置后点击“刷新协议”；每批测评也会重新读取生效配置。
+- 手动导入使用配置快照，在当前服务运行期间优先使用该快照。切换 FlClash 配置后需要重新导入；它不会跟随原文件变化。
+- 重启服务后，程序再次优先尝试自动读取。自动读取失败且存在已保存的导入快照时，会使用该快照，并在网页明确提示；没有有效快照时提示手动配置。
+- 使用旧快照作为后备时，点击“刷新协议”会再次尝试自动读取；成功后恢复使用生效配置。
+
+挂载的数据目录需允许容器用户 UID 10001 读取。移动 FlClash 程序安装位置不影响镜像内核心；自定义数据目录移动后，应更新 `.env` 并重新创建服务。
 
 测速反映运行 Docker 的网络环境。更新、重建或停止容器前，应在网页停止测评并等状态变为结束，避免中断当前批次。
 
 ### 可选：启用 CloakBrowser
 
-CloakBrowser相关地址：https://github.com/CloakHQ/CloakBrowser
-
-使用附加 Compose 文件，同时启动官方 CloakBrowser 容器：
+默认使用镜像内的 Chromium。需要 CloakBrowser 时，使用附加 Compose 文件启动官方浏览器容器；自动读取配置仍然启用：
 
 ```sh
 docker compose -f compose.yaml -f compose.cloakbrowser.yaml up --build -d
@@ -139,7 +149,9 @@ docker compose cp checker:/data/results ./results
 
 ## 常见问题
 
-**找不到配置或代理集合缓存**：在 FlClash 中启用目标配置并更新集合，再选择数据文件夹导入。普通订阅文件不一定包含集合缓存。自动读取模式下，检查挂载目录是否包含生效 `config.yaml` 和引用文件。
+**自动读取失败**：确认 FlClash 已生成生效 `config.yaml`，数据目录可读。如果使用自定义目录，可在网页导入，或设置 `.env` 的 `FLCLASH_DIR` 后重新创建服务。若 Docker 在挂载阶段直接报错，先检查路径、目录权限及 Docker 文件共享权限。
+
+**代理集合缓存缺失**：在 FlClash 中启用目标配置并更新集合，再刷新协议或选择数据文件夹导入。普通订阅文件不一定包含集合缓存，不能代替完整生效数据。
 
 **Docker 引擎不可用**：先确保 `docker info` 正常，并确认使用 Linux 容器。
 

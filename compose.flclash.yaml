@@ -1,14 +1,4 @@
-# Read the standard FlClash data directory without editing .env on Windows.
-# FLCLASH_DIR overrides the detected directory for custom installations.
+# Compatibility overlay for older startup commands. Automatic reading is now
+# enabled by compose.yaml; this file does not change the default behavior.
 services:
-  checker:
-    environment:
-      FLCLASH_CONFIG: /flclash/config.yaml
-      FLCLASH_HOST_DIR: "${FLCLASH_DIR:-${APPDATA:-.}/com.follow/clash}"
-    volumes:
-      - type: bind
-        source: "${FLCLASH_DIR:-${APPDATA:-.}/com.follow/clash}"
-        target: /flclash
-        read_only: true
-        bind:
-          create_host_path: false
+  checker: {}
