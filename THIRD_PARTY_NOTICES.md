@@ -1,6 +1,6 @@
 # Third-party software
 
-The MIT license covers this project's original checker and launchers. It does
+The MIT license covers this project's original checker. It does
 not replace the licenses of the following independent dependencies.
 
 | Dependency | Use | License / source |
@@ -15,10 +15,10 @@ not replace the licenses of the following independent dependencies.
 | CloakBrowser | Optional external Docker service | [Upstream license and binary terms](https://github.com/CloakHQ/CloakBrowser#license); the image is downloaded from its publisher when selected |
 | Chromium, Python, Node.js, Debian | Container runtime | Their respective upstream licenses; installed from official images / Debian packages |
 
-FlClash binaries are excluded from the Git repository. `prepare-assets.ps1`
-downloads the official release package and verifies its SHA-256; Docker uses
-only its unmodified core. See [docker-assets/README.md](docker-assets/README.md)
-for binary and matching source links. Keep upstream notices and provide matching
+FlClash binaries are excluded from the Git repository. `Dockerfile` downloads
+the [official v0.8.93 Linux amd64 package](https://github.com/chen08209/FlClash/releases/download/v0.8.93/FlClash-0.8.93-linux-amd64.deb)
+and verifies SHA-256 `135da95baaf41f077521b98c0170554da432348b2e3aee73d6f4f050119e7917`;
+Docker uses only its unmodified core. Keep upstream notices and provide matching
 source when redistributing a container that includes GPL software.
 
 IPLark is an external website, not a dependency bundled in this project. Its

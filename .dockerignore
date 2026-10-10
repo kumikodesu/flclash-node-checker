@@ -1,7 +1,5 @@
 *
 !Dockerfile
-!docker-assets/
-!docker-assets/flclash-amd64.deb
 !vendor/
 !vendor/**
 !bootstrap.py

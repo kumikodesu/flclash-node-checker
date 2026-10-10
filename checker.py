@@ -1,4 +1,5 @@
 """Sequential measurements and transparent absolute scoring (download weight = 20%)."""
+import bootstrap  # Load the dependencies for container command-line execution.
 import argparse
 from datetime import datetime
 import ipaddress
@@ -9,7 +10,6 @@ from pathlib import Path
 import statistics
 import threading
 import time
-import webbrowser
 
 import requests
 
@@ -17,7 +17,6 @@ from core import RunLock, TestCore, load_nodes, resolve_paths
 from iplark import IPLark
 from report import write_report
 
-ROOT = Path(__file__).parent
 WEIGHTS = {"speed": 20, "iplark": 40, "success": 20,
            "latency": 10, "jitter": 5, "reachability": 5}
 SPEED_URL = "https://speed.cloudflare.com/__down"
@@ -194,7 +193,7 @@ def _run(args, cancel: threading.Event, notify, progress) -> Path:
     output = Path(args.output).resolve() / datetime.now().strftime("%Y%m%d-%H%M%S-%f")
     output.mkdir(parents=True)
     report = {"created_at": datetime.now().astimezone().isoformat(),
-              "measurement_environment": "本机 Docker 容器网络" if os.name != "nt" else "Windows 本机网络",
+              "measurement_environment": "Docker 容器网络",
               "source": str(source), "core": str(core_path), "protocol_filter": args.protocol, "weights": WEIGHTS,
               "scope_count": len(nodes), "selected_count": len(selected), "cancelled": False,
               "iplark_block": None,
@@ -237,22 +236,17 @@ def _run(args, cancel: threading.Event, notify, progress) -> Path:
         write_report(report, output)
     path = output / "report.html"
     notify(f"报告已生成：{path}")
-    if not args.no_open:
-        webbrowser.open(path.as_uri())
     return path
 
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description="FlClash 全节点综合评分，网速权重固定为 20%。")
     parser.add_argument("--config", default=None, help="生效的 config.yaml；省略时每次自动识别")
-    parser.add_argument("--core", default=None, help="FlClash.exe 或 FlClashCore.exe；省略时每次自动识别")
+    parser.add_argument("--core", default=None, help="容器内 FlClashCore 路径")
     parser.add_argument("--protocol", default="all", help="all、ss、anytls 等配置协议名称")
-    parser.add_argument("--output", default=str(ROOT / "results"))
+    parser.add_argument("--output", default=os.environ.get("CHECKER_OUTPUT", "/data/results"))
     parser.add_argument("--download-mib", type=int, default=8)
     parser.add_argument("--limit", type=int, default=None, help="仅用于快速验证，正式使用请省略")
-    parser.add_argument("--headless", action="store_true", help="命令行模式，IPLark 浏览器按环境选择")
-    parser.add_argument("--no-open", action="store_true")
-    parser.add_argument("--autorun", action="store_true")
     args = parser.parse_args(argv)
     if not 1 <= args.download_mib <= 64 or (args.limit is not None and args.limit < 1):
         parser.error("--download-mib 必须为 1–64，--limit 必须为正整数。")
@@ -261,11 +255,7 @@ def parse_args(argv=None):
 
 def main():
     args = parse_args()
-    if args.headless:
-        run(args, threading.Event(), notify=lambda message: print(message, flush=True))
-    else:
-        from gui import show
-        show(args)
+    run(args, threading.Event(), notify=lambda message: print(message, flush=True))
 
 
 if __name__ == "__main__":

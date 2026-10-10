@@ -38,7 +38,7 @@ class Batch:
         options, _ = protocol_options(nodes)
         if protocol not in options:
             raise ValueError("所选协议已不在当前配置中，请刷新协议列表。")
-        args = parse_args(["--headless", "--no-open", "--protocol", protocol, "--output", str(OUTPUT)])
+        args = parse_args(["--protocol", protocol, "--output", str(OUTPUT)])
         with self.lock:
             if self.state["running"]:
                 raise ValueError("已有测评正在运行。")

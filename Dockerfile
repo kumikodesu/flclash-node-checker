@@ -1,5 +1,7 @@
+# syntax=docker/dockerfile:1
 FROM python:3.12-slim-bookworm AS core
-COPY docker-assets/flclash-amd64.deb /tmp/flclash.deb
+ADD --checksum=sha256:135da95baaf41f077521b98c0170554da432348b2e3aee73d6f4f050119e7917 \
+    https://github.com/chen08209/FlClash/releases/download/v0.8.93/FlClash-0.8.93-linux-amd64.deb /tmp/flclash.deb
 RUN echo '135da95baaf41f077521b98c0170554da432348b2e3aee73d6f4f050119e7917  /tmp/flclash.deb' | sha256sum --check \
     && dpkg-deb --extract /tmp/flclash.deb /tmp/flclash \
     && mkdir /core \

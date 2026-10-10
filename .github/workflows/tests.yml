@@ -3,24 +3,18 @@ on: [push, pull_request]
 permissions:
   contents: read
 jobs:
-  unit-tests:
-    strategy:
-      matrix:
-        os: [windows-latest, ubuntu-latest]
-    runs-on: ${{ matrix.os }}
+  docker-tests:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Windows tests
-        if: runner.os == 'Windows'
-        run: python -E -s -X utf8 -m unittest test_checker test_docker test_desktop test_launcher
-      - name: Linux tests
-        if: runner.os == 'Linux'
-        run: python -E -s -m unittest test_docker
+      - name: Build Docker image
+        run: docker build -t flclash-node-checker-test .
+      - name: Unit tests (synthetic data, no external network)
+        run: docker run --rm --network none --mount "type=bind,src=$PWD,dst=/tests,readonly" -w /tests flclash-node-checker-test python -E -s -m unittest test_checker test_docker
       - name: Browser bridge syntax
-        run: node --check iplark_browser.mjs
+        run: docker run --rm --network none flclash-node-checker-test node --check /app/iplark_browser.mjs
+      - name: Compose configuration
+        run: |
+          export FLCLASH_DIR=/tmp/flclash-test
+          docker compose config --quiet
+          docker compose -f compose.yaml -f compose.cloakbrowser.yaml config --quiet

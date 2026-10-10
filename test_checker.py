@@ -2,22 +2,18 @@ import copy
 import csv
 from datetime import datetime, timedelta, timezone
 import json
-import os
 from pathlib import Path
-import shutil
-import subprocess
-import sys
 import tempfile
 import threading
 import unittest
 import uuid
 from unittest.mock import MagicMock, patch
 
-from bootstrap import ROOT as TEST_ROOT
+import bootstrap
 import yaml
 
 from checker import WEIGHTS, download, measure_node, parse_args, run, score_node
-from core import RunLock, find_core, load_nodes, protocol_options, resolve_paths
+from core import RunLock, load_nodes, protocol_options
 from iplark import IPLark
 from report import node_region, ranked, write_report
 
@@ -132,102 +128,6 @@ class ScoringTests(unittest.TestCase):
 
 
 class EnvironmentTests(unittest.TestCase):
-    def test_windows_launcher_falls_back_and_preserves_startup_errors(self):
-        with tempfile.TemporaryDirectory(prefix='启动 检查-', dir=TEST_ROOT) as directory:
-            root = Path(directory)
-            for name in ['start.cmd', 'launch.ps1', 'bootstrap.py']:
-                shutil.copy2(TEST_ROOT/name, root/name)
-            shutil.copytree(TEST_ROOT/'vendor', root/'vendor',
-                            ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
-            checker = root/'checker.py'
-            checker.write_text('import sys\nprint("LAUNCH OK", " ".join(sys.argv[1:]))\n', encoding='utf-8')
-            broken = root/'.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe'
-            broken.parent.mkdir(parents=True)
-            shutil.copy2(Path(os.environ['SystemRoot'])/'System32/where.exe', broken)
-            env = dict(os.environ, USERPROFILE=str(root),
-                       PATH=str(Path(sys.executable).parent)+';'+os.environ['PATH'],
-                       PYTHONHOME=str(root/'missing-python-home'))
-            command = ['cmd.exe', '/d', '/c', str(root/'start.cmd')]
-            result = subprocess.run(command, env=env, cwd=TEST_ROOT.parent, stdin=subprocess.DEVNULL,
-                                    capture_output=True, timeout=20)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            log = (root/'startup.log').read_text(encoding='utf-8-sig')
-            self.assertIn('Python dependency check failed:', log)
-            self.assertIn('LAUNCH OK --autorun', log)
-            self.assertIn(str(root/'vendor'/'yaml'/'__init__.py'), log)
-            checker.write_text('raise RuntimeError("startup fixture failure")\n', encoding='utf-8')
-            result = subprocess.run(command, env=env, stdin=subprocess.DEVNULL,
-                                    capture_output=True, timeout=20)
-            self.assertEqual(result.returncode, 1)
-            log = (root/'startup.log').read_text(encoding='utf-8-sig')
-            self.assertIn('startup fixture failure', log)
-            self.assertIn('Program exit code: 1', log)
-
-    def test_moved_running_install_wins_over_old_registered_install(self):
-        with tempfile.TemporaryDirectory(dir=TEST_ROOT) as directory:
-            root = Path(directory)
-            old, moved = root / 'old' / 'FlClashCore.exe', root / '移动后的 FlClash' / 'FlClashCore.exe'
-            for path in (old, moved):
-                path.parent.mkdir()
-                path.write_bytes(b'fixture')
-            with patch('core.running_core_paths', return_value=[moved]), patch(
-                    'core.registered_core_paths', return_value=[old]) as registry:
-                self.assertEqual(find_core(), moved.resolve())
-                registry.assert_not_called()
-
-    def test_registry_install_is_used_when_flclash_is_closed(self):
-        with tempfile.TemporaryDirectory(dir=TEST_ROOT) as directory:
-            executable = Path(directory) / 'FlClashCore.exe'
-            executable.write_bytes(b'fixture')
-            with patch('core.running_core_paths', return_value=[]), patch(
-                    'core.registered_core_paths', return_value=[executable]):
-                self.assertEqual(find_core(), executable.resolve())
-
-    def test_multiple_running_installs_and_missing_active_core_do_not_guess(self):
-        with tempfile.TemporaryDirectory(dir=TEST_ROOT) as directory:
-            paths = [Path(directory) / name / 'FlClashCore.exe' for name in ('a', 'b')]
-            for path in paths:
-                path.parent.mkdir()
-                path.write_bytes(b'fixture')
-            with patch('core.running_core_paths', return_value=paths):
-                with self.assertRaises(ValueError):
-                    find_core()
-            with patch('core.running_core_paths', return_value=[Path(directory)/'missing.exe']), patch(
-                    'core.registered_core_paths', return_value=[paths[0]]) as registry:
-                with self.assertRaises(FileNotFoundError):
-                    find_core()
-                registry.assert_not_called()
-
-    def test_custom_paths_and_portable_config_are_resolved_without_old_defaults(self):
-        with tempfile.TemporaryDirectory(dir=TEST_ROOT) as directory:
-            root = Path(directory)
-            executable = root / 'FlClashCore.exe'
-            executable.write_bytes(b'fixture')
-            source = root / 'config' / 'config.yaml'
-            source.parent.mkdir()
-            source.write_text('proxies: []')
-            with patch('core.default_config', return_value=root/'missing.yaml'):
-                self.assertEqual(resolve_paths(core=root/'FlClash.exe'), (source.resolve(), executable.resolve()))
-            custom = root / '当前订阅.yaml'
-            custom.write_text('proxies: []')
-            self.assertEqual(resolve_paths(custom, executable), (custom.resolve(), executable.resolve()))
-            with self.assertRaises(FileNotFoundError):
-                resolve_paths(root/'deleted.yaml', executable)
-
-    def test_conflicting_config_locations_require_explicit_choice(self):
-        with tempfile.TemporaryDirectory(dir=TEST_ROOT) as directory:
-            root = Path(directory)
-            executable, standard = root/'FlClashCore.exe', root/'standard.yaml'
-            executable.write_bytes(b'fixture')
-            standard.write_text('proxies: []')
-            portable = root/'config/config.yaml'
-            portable.parent.mkdir()
-            portable.write_text('proxies: []')
-            with patch('core.default_config', return_value=standard):
-                with self.assertRaises(ValueError):
-                    resolve_paths(core=executable)
-                self.assertEqual(resolve_paths(portable, executable)[0], portable.resolve())
-
     def test_protocol_options_refresh_and_accept_core_supported_new_types(self):
         options, selected = protocol_options([{'type':'ss'}, {'type':'anytls'}], 'SS')
         self.assertEqual(selected, 'ss')
@@ -236,10 +136,10 @@ class EnvironmentTests(unittest.TestCase):
         self.assertEqual(selected, 'all')
 
     def test_each_batch_resolves_paths_again_and_reads_switched_config(self):
-        with tempfile.TemporaryDirectory(dir=TEST_ROOT) as directory:
+        with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             source = root/'config.yaml'
-            args = parse_args(['--output', str(root/'results'), '--no-open'])
+            args = parse_args(['--output', str(root/'results')])
             self.assertIsNone(args.config)
             cancel = threading.Event()
             cancel.set()
@@ -293,7 +193,7 @@ class ScopeAndReportTests(unittest.TestCase):
         self.assertNotIn('query_issue', result)
 
     def test_report_exports_verification_warning_even_if_cache_completes_score(self):
-        with tempfile.TemporaryDirectory(dir=TEST_ROOT) as directory:
+        with tempfile.TemporaryDirectory() as directory:
             item = score_node(measured(60))
             issue = {'kind':'verification', 'message':'IPLark 要求安全验证',
                      'ip':'203.0.113.1', 'checked_at':datetime.now(timezone.utc).isoformat()}
@@ -322,14 +222,14 @@ class ScopeAndReportTests(unittest.TestCase):
         self.assertEqual(node_region({"name": "BUS-X1"})[0], "未知")
 
     def test_stop_keeps_every_node_and_closes_owned_core(self):
-        with tempfile.TemporaryDirectory(dir=TEST_ROOT) as directory:
+        with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             source = root / 'config.yaml'
             source.write_text('proxies:\n- {name: a, type: ss}\n- {name: b, type: anytls}\n')
             executable = root/'FlClashCore.exe'
             executable.write_bytes(b'fixture')
             args = parse_args(['--config', str(source), '--core', str(executable),
-                               '--output', str(root / 'results'), '--no-open'])
+                               '--output', str(root / 'results')])
             cancel = threading.Event()
             cancel.set()
             with patch('checker.TestCore') as core, patch('checker.IPLark') as reputation:
@@ -361,7 +261,7 @@ class ScopeAndReportTests(unittest.TestCase):
         self.assertIsNone(client.cached_score(ip))
 
     def test_cached_provider_nodes_are_included_without_changing_source(self):
-        with tempfile.TemporaryDirectory(dir=TEST_ROOT) as directory:
+        with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             source = root / "config.yaml"
             provider = root / "provider.yaml"
@@ -374,21 +274,21 @@ class ScopeAndReportTests(unittest.TestCase):
             self.assertEqual(original, (source.read_bytes(), provider.read_bytes()))
 
     def test_missing_provider_cache_fails_explicitly(self):
-        with tempfile.TemporaryDirectory(dir=TEST_ROOT) as directory:
+        with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "config.yaml"
             source.write_text("proxy-providers:\n  p:\n    type: http\n    path: missing.yaml\n")
             with self.assertRaises(FileNotFoundError):
                 load_nodes(source)
 
     def test_duplicate_node_names_fail_instead_of_silently_dropping_nodes(self):
-        with tempfile.TemporaryDirectory(dir=TEST_ROOT) as directory:
+        with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "config.yaml"
             source.write_text("proxies:\n- {name: same, type: ss}\n- {name: same, type: anytls}\n")
             with self.assertRaises(ValueError):
                 load_nodes(source)
 
     def test_html_and_csv_export_untrusted_names_safely_and_keep_all_rows(self):
-        with tempfile.TemporaryDirectory(dir=TEST_ROOT) as directory:
+        with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             unsafe = score_node(measured())
             unsafe["name"] = '</script><img src=x onerror="alert(1)">'

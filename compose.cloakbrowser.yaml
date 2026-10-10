@@ -1,0 +1,19 @@
+services:
+  checker:
+    environment:
+      IPLARK_CDP_URL: http://cloakbrowser:9222
+    depends_on:
+      cloakbrowser:
+        condition: service_healthy
+  cloakbrowser:
+    image: cloakhq/cloakbrowser:latest
+    platform: linux/amd64
+    command: cloakserve
+    init: true
+    shm_size: 256mb
+    healthcheck:
+      test: [CMD, curl, -f, "http://localhost:9222/json/version"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s

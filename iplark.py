@@ -123,7 +123,7 @@ class IPLark:
                 response = session.get(self.cdp_url.rstrip("/") + "/json/version", timeout=5)
                 response.raise_for_status()
                 socket_url = response.json()["webSocketDebuggerUrl"]
-            self.notify("正在通过本机 CDP 浏览器查询 IPLark，等待页面自动加载；持续人工验证仍会报告。")
+            self.notify("正在通过 CDP 浏览器查询 IPLark，等待页面自动加载；持续人工验证仍会报告。")
             self.start_bridge(node, socket_url, remote=True)
             return
         edge = find_edge()
@@ -140,7 +140,7 @@ class IPLark:
         deadline = time.monotonic() + 15
         while not port_file.is_file():
             if self.cancel.is_set() or time.monotonic() > deadline:
-                raise TimeoutError("独立 Edge 未启动。")
+                raise TimeoutError("独立浏览器未启动。")
             time.sleep(0.15)
         port = int(port_file.read_text().splitlines()[0])
         with requests.Session() as session:
