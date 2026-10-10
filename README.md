@@ -1,8 +1,8 @@
 # FlClash Node Checker
 
-对 FlClash 当前生效配置中的代理节点进行批量测评，生成可排序、筛选和导出的综合评分报告。**下载网速固定占 20%**，IP 质量参考 [IPLark](https://iplark.com/) 公开网页。
+对 FlClash 当前生效配置中的代理节点进行批量测评，生成可排序、筛选和导出的综合评分报告。下载网速固定占 20%，IP 质量参考 [IPLark](https://iplark.com/) 公开网页。
 
-通过 **Docker Compose** 启动，在浏览器中操作。可选启用 CloakBrowser；默认使用镜像内的 Chromium，无需另行安装浏览器、Python 或 Node.js。
+通过Docker Compose启动，在浏览器中操作。可选启用 CloakBrowser；默认使用镜像内的 Chromium，无需另行安装浏览器、Python 或 Node.js。
 
 ## 能做什么
 
@@ -57,6 +57,8 @@ docker compose -f compose.yaml -f compose.flclash.yaml -f compose.cloakbrowser.y
 测速反映运行 Docker 的网络环境。更新、重建或停止容器前，应在网页停止测评并等状态变为结束，避免中断当前批次。
 
 ### 可选：启用 CloakBrowser
+
+CloakBrowser相关地址：https://github.com/CloakHQ/CloakBrowser
 
 使用附加 Compose 文件，同时启动官方 CloakBrowser 容器：
 
