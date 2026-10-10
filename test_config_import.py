@@ -1,3 +1,6 @@
+# 导入与默认读取回归测试：验证上传包的路径边界、依赖完整性和敏感信息处理。
+# 使用虚构 YAML / 证书文本，检查失败导入不会覆盖上次有效快照。
+# 同时验证自动读取失败后的回退、后续恢复，以及手动快照与挂载配置的来源标识。
 import bootstrap
 from pathlib import Path
 import tempfile
@@ -13,11 +16,14 @@ NODE = {"name": "US-demo", "type": "ss", "server": "192.0.2.1", "port": 443,
         "cipher": "aes-128-gcm", "password": "fictional-test-password"}
 
 
+# 生成浏览器上传条目；字典转 YAML，字符串保持原样，便于测试配置、集合及非法文本。
 def file(path, data):
     return {"path": path, "content": yaml.safe_dump(data) if isinstance(data, dict) else data}
 
 
+# 配置导入与默认读取的回归集合，覆盖有效输入、缺失依赖、路径攻击和保存失败后的状态。
 class ImportTests(unittest.TestCase):
+    # 导入单份 YAML，确认节点保留而控制端口与 secret 不进入快照，减少不必要的敏感配置复制。
     def test_single_config_preserves_nodes_without_subscription_or_controller_secret(self):
         text, count = bundle_config([file("subscription.yaml", {"proxies": [NODE], "secret": "private",
                                                                "external-controller": "0.0.0.0:9090"})])
@@ -27,6 +33,7 @@ class ImportTests(unittest.TestCase):
         self.assertNotIn("secret", result)
         self.assertNotIn("external-controller", result)
 
+    # 使用 Windows 绝对引用和无扩展名集合缓存；验证合并全部协议，并移除原始订阅 URL / provider 元数据。
     def test_folder_includes_extensionless_provider_cache_and_windows_absolute_paths(self):
         text, count = bundle_config([
             file("config.yaml", {"proxies": [NODE], "proxy-providers": {"p": {
@@ -40,17 +47,20 @@ class ImportTests(unittest.TestCase):
         self.assertNotIn("private-subscription", text)
         self.assertNotIn("proxy-providers", result)
 
+    # 上传配置及虚构 PEM 文本；验证绝对证书引用转为快照中的内联证书，不依赖原路径。
     def test_external_certificate_is_embedded_without_host_path(self):
         pem = "-----BEGIN CERTIFICATE-----\nfixture\n-----END CERTIFICATE-----\n"
         text, _ = bundle_config([file("config.yaml", {"proxies": [{**NODE, "ca": "/original/certs/root.pem"}]}),
                                  file("certs/root.pem", pem)])
         self.assertEqual(yaml.safe_load(text)["proxies"][0]["ca"], pem)
 
+    # WireGuard 私钥本就是内联字符串；验证不会误当证书文件路径查找。
     def test_wireguard_inline_private_key_is_not_treated_as_a_file(self):
         node = {**NODE, "type": "wireguard", "private-key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}
         text, _ = bundle_config([file("config.yaml", {"proxies": [node]})])
         self.assertEqual(yaml.safe_load(text)["proxies"][0]["private-key"], node["private-key"])
 
+    # 分别构造缺失依赖、相同后缀的多候选依赖和同名节点，确认三者都拒绝导入。
     def test_missing_or_ambiguous_provider_file_and_duplicate_nodes_are_rejected(self):
         config = file("config.yaml", {"proxy-providers": {"p": {"path": "/old/nodes.yaml"}}})
         for entries in ([config], [config, file("a/nodes.yaml", {"proxies": [NODE]}),
@@ -59,6 +69,7 @@ class ImportTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 bundle_config(entries)
 
+    # 尝试绝对上传路径、父目录跳转、Windows 盘符和宿主机文件引用；验证只能使用本次选择的文件。
     def test_uploaded_paths_cannot_escape_or_read_host_files(self):
         for name in ("../config.yaml", "/config.yaml", "a/../config.yaml", "C:/config.yaml", "a\\config.yaml"):
             with self.assertRaises(ValueError):
@@ -66,16 +77,19 @@ class ImportTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             bundle_config([file("config.yaml", {"proxy-providers": {"p": {"path": "/etc/passwd"}}})])
 
+    # 把规则缓存误当代理集合；验证缺少 proxies 列表时明确拒绝，不能悄悄忽略。
     def test_wrong_provider_cache_cannot_silently_drop_nodes(self):
         with self.assertRaises(ValueError):
             bundle_config([file("config.yaml", {"proxies": [NODE], "proxy-providers": {"p": {"path": "nodes.yaml"}}}),
                            file("nodes.yaml", {"rules": ["DOMAIN,example.invalid"]})])
 
+    # 非法 YAML 中放入虚构敏感标记；确认用户可见异常不带出原始 YAML 内容。
     def test_yaml_error_never_exposes_credentials(self):
         with self.assertRaises(ValueError) as result:
             bundle_config([file("config.yaml", "password: PRIVATE-MARKER\nproxies: [")])
         self.assertNotIn("PRIVATE-MARKER", str(result.exception))
 
+    # 先保存有效快照，再尝试无效导入与运行中导入；逐字节检查快照未被覆盖。
     def test_failed_import_preserves_previous_snapshot_and_active_batch_rejects_import(self):
         with tempfile.TemporaryDirectory() as directory, patch.object(webui, "IMPORTED", Path(directory)/"config.yaml"):
             batch = webui.Batch()
@@ -90,6 +104,7 @@ class ImportTests(unittest.TestCase):
                 batch.import_config([file("config.yaml", {"proxies": [{**NODE, "name": "new"}]})])
             self.assertEqual(webui.IMPORTED.read_bytes(), before)
 
+    # 模拟两次读取的协议变化与两种配置来源；验证元数据反映最新节点且清楚区分快照 / 挂载。
     def test_protocol_refresh_reports_snapshot_or_mounted_source_and_reloads(self):
         batch = webui.Batch()
         with patch.object(webui, "resolve_paths", return_value=(webui.IMPORTED.resolve(), Path("core"))), patch.object(
@@ -103,6 +118,7 @@ class ImportTests(unittest.TestCase):
                 webui, "load_nodes", return_value=({}, [NODE])):
             self.assertEqual(batch.configuration()[1]["source_mode"], "mounted")
 
+    # 先模拟自动配置缺失并回退，再模拟恢复；验证回退不会永久开启手动模式，刷新能恢复自动读取。
     def test_automatic_read_failure_uses_saved_snapshot_and_retries_on_refresh(self):
         batch = webui.Batch()
         mounted = Path("/flclash/config.yaml")
@@ -119,6 +135,7 @@ class ImportTests(unittest.TestCase):
             self.assertFalse(recovered["automatic_failed"])
             self.assertEqual(recovered["protocols"], ["all", "anytls"])
 
+    # 自动 YAML 解析失败时使用有效快照；确认元数据标记回退且不暴露解析异常中的虚构密钥。
     def test_invalid_automatic_yaml_falls_back_without_disclosing_credentials(self):
         batch = webui.Batch()
         with patch.object(Path, "is_file", return_value=True), patch.object(
@@ -129,6 +146,7 @@ class ImportTests(unittest.TestCase):
             self.assertTrue(result["automatic_failed"])
             self.assertNotIn("PRIVATE-MARKER", str(result))
 
+    # YAML 可以解析但节点缺少协议时也属于自动读取失败；验证协议提取错误参与快照回退。
     def test_automatic_config_with_missing_node_type_uses_saved_snapshot(self):
         batch = webui.Batch()
         with patch.object(Path, "is_file", return_value=True), patch.object(

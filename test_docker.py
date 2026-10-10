@@ -1,3 +1,6 @@
+# 容器与接口回归测试：覆盖冷却持久化、CDP、路径映射、IPC 分帧和网页鉴权。
+# HTTP 服务和 socketpair 仅在测试环境通信；浏览器和外部 HTTP 查询由 mock 替代。
+# 关注正常流程之外的 EOF、非法 Host、无效令牌及旧协议等边界条件。
 import bootstrap
 import http.client
 from datetime import datetime, timezone
@@ -18,7 +21,9 @@ import webui
 from iplark import IPLark
 
 
+# Docker 运行边界的离线测试集合，不要求连接真实节点或真实浏览器。
 class DockerTests(unittest.TestCase):
+    # 有效磁盘缓存命中时返回 cached，确认没有调用浏览器启动，避免不必要的网络查询。
     def test_valid_cache_skips_browser_entirely(self):
         with tempfile.TemporaryDirectory() as directory, patch.dict('os.environ', {'IPLARK_CACHE': str(Path(directory)/'cache.json')}):
             client = IPLark(lambda _: None, threading.Event())
@@ -27,6 +32,7 @@ class DockerTests(unittest.TestCase):
                 self.assertEqual(client.lookup('203.0.113.1')['source'], 'cached')
                 start.assert_not_called()
 
+    # 记录 429 与较长 Retry-After，再创建新客户端；验证冷却跨实例保留且阻止实时浏览器启动。
     def test_cooldown_survives_new_client_and_respects_retry_after(self):
         with tempfile.TemporaryDirectory() as directory, patch.dict('os.environ', {'IPLARK_CACHE': str(Path(directory)/'cache.json')}):
             client = IPLark(lambda _: None, threading.Event())
@@ -39,6 +45,7 @@ class DockerTests(unittest.TestCase):
                 start.assert_not_called()
             self.assertIn('resume_after', resumed.block_event)
 
+    # 验证 HTTP 日期格式的 Retry-After 能转换等待时间，同时停止事件能取消查询间隔。
     def test_query_spacing_can_be_cancelled_and_date_header_is_supported(self):
         with tempfile.TemporaryDirectory() as directory, patch.dict('os.environ', {'IPLARK_CACHE': str(Path(directory)/'cache.json')}):
             cancel = threading.Event()
@@ -49,6 +56,7 @@ class DockerTests(unittest.TestCase):
             with self.assertRaises(InterruptedError):
                 client.wait_between_queries()
 
+    # 模拟显式 CDP 服务的元数据，验证以远程模式启动桥接，不创建本地 Chromium 或临时配置目录。
     def test_remote_iplark_uses_cdp_without_launching_local_browser(self):
         with patch.dict("os.environ", {"IPLARK_CDP_URL": "http://host.docker.internal:9222"}):
             client = IPLark(lambda _: None, threading.Event())
@@ -63,6 +71,7 @@ class DockerTests(unittest.TestCase):
             self.assertIsNone(client.browser)
             self.assertIsNone(client.temp)
 
+    # 在容器语义下映射 Windows 绝对 / 相对集合路径，并确认挂载目录之外的绝对路径会被拒绝。
     def test_windows_provider_paths_are_mapped_only_inside_mount(self):
         source = Path("/flclash/config.yaml")
         with patch.object(core, "os", SimpleNamespace(name="posix", environ={"FLCLASH_HOST_DIR": r"D:\Data\FlClash"})):
@@ -72,12 +81,14 @@ class DockerTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 core.config_file(source, r"C:\Elsewhere\nodes.yaml")
 
+    # 通过 socketpair 把一个 RPC 响应拆为数段；验证完整重组并在对端关闭后报告 EOF。
     def test_tcp_rpc_handles_fragmented_frames_and_eof(self):
         with patch.object(core, "os", SimpleNamespace(name="posix")):
             client = core.TestCore(Path("/core"), Path("/config"), {}, [])
         local, remote = socket.socketpair()
         client.connection = local
 
+        # 模拟核心端：完整读取请求帧，沿用请求 ID，再分三段返回响应，主动制造真实 TCP 分帧场景。
         def peer():
             with remote:
                 raw = bytearray()
@@ -103,6 +114,7 @@ class DockerTests(unittest.TestCase):
         finally:
             client.close()
 
+    # 启动临时回环 HTTP 服务；测试健康检查、无令牌拒绝、合法启动请求及目录穿越下载拒绝。
     def test_web_actions_require_token_and_do_not_serve_arbitrary_files(self):
         with tempfile.TemporaryDirectory() as temporary, patch.object(webui, "OUTPUT", Path(temporary)), patch.object(
                 webui.Handler.batch, "start") as start:
@@ -135,6 +147,7 @@ class DockerTests(unittest.TestCase):
                 server.shutdown()
                 server.server_close()
 
+    # 当前配置已经从 ss 切为 anytls 时，旧协议启动必须失败，并确认真正的测评函数未执行。
     def test_batch_reloads_protocols_and_does_not_start_stale_protocol(self):
         batch = webui.Batch()
         with patch.object(webui, "resolve_paths", return_value=(Path("config.yaml"), Path("core"))), patch.object(
@@ -143,6 +156,7 @@ class DockerTests(unittest.TestCase):
                 batch.start("ss")
             runner.assert_not_called()
 
+    # 用外部域名 Host 请求回环服务，即使令牌正确也不能读取主页 / 状态或启动批次，验证 DNS 重绑定防护。
     def test_remote_host_cannot_read_local_token_or_trigger_batch(self):
         server = webui.ThreadingHTTPServer(("127.0.0.1", 0), webui.Handler)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
