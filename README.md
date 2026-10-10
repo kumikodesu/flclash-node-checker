@@ -70,7 +70,7 @@ docker compose up -d --force-recreate
 
 ### 可选：启用 CloakBrowser
 
-CloakBrowser项目位置：[text](https://github.com/CloakHQ/CloakBrowser)
+CloakBrowser可以减少脚本被网站脚本审查拦截的概率：[CloakBrowser](https://github.com/CloakHQ/CloakBrowser)
 
 默认使用镜像内的 Chromium。需要 CloakBrowser 时，使用附加 Compose 文件启动官方浏览器容器；自动读取配置仍然启用：
 
